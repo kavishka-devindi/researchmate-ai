@@ -112,3 +112,19 @@ def search_chunks(question, k=4):
             }
         )
     return hits
+
+def stored_documents():
+    """List the documents in the database with their chunk counts."""
+    data = get_collection().get(include=["metadatas"])
+    counts = {}
+    for meta in data["metadatas"]:
+        counts[meta["source"]] = counts.get(meta["source"], 0) + 1
+    return [{"File": name, "Chunks": n} for name, n in sorted(counts.items())]
+
+
+def clear_collection():
+    """Delete all stored documents."""
+    try:
+        chroma_client.delete_collection("documents")
+    except Exception:
+        pass
