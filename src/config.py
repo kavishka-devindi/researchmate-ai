@@ -15,3 +15,10 @@ if not GEMINI_API_KEY:
 CHAT_MODEL = "gemini-3.5-flash-lite"
 FALLBACK_MODEL = "gemini-3.1-flash-lite"
 TEMPERATURE = 0.2
+
+# Embeddings and vector database
+EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_DIM = 768
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CHROMA_DIR = os.path.join(BASE_DIR, "data", "chroma")
