@@ -2,7 +2,7 @@ import re
 from src.llm import generate_answer
 from src.vector_store import search_chunks
 
-TOP_K = 4          # how many chunks to retrieve
+TOP_K = 6         # how many chunks to retrieve
 MIN_SCORE = 0.6    # chunks below this similarity are treated as irrelevant
 
 NOT_FOUND = "I could not find this in the uploaded documents."
@@ -22,12 +22,15 @@ def build_context(hits):
         blocks.append(f"[{i}] (Source: {h['source']}, page {h['page']})\n{h['text']}")
     return "\n\n".join(blocks)
 
-CITATION_PATTERN = re.compile(r"\[Source:\s*(.+?),\s*pages?\s*(\d+)", re.IGNORECASE)
+CITATION_PATTERN = re.compile(r"\[Source:\s*(.+?),\s*pages?\s*([\d,\s]+)\]", re.IGNORECASE)
 
 
 def cited_sources(answer, sources):
     """Keep only the chunks whose (file, page) the answer actually cites."""
-    cited = {(m.group(1).strip(), int(m.group(2))) for m in CITATION_PATTERN.finditer(answer)}
+    cited = set()
+    for m in CITATION_PATTERN.finditer(answer):
+        for number in re.findall(r"\d+", m.group(2)):   # handles "page 8, 9"
+            cited.add((m.group(1).strip(), int(number)))
     used = [s for s in sources if (s["source"], s["page"]) in cited]
     return used or sources  # if no citation could be read, show everything retrieved
 
@@ -44,4 +47,6 @@ def answer_question(question):
 
     prompt = f"Context:\n{build_context(relevant)}\n\nQuestion: {question}\n\nAnswer:"
     answer = generate_answer(prompt, system_instruction=SYSTEM_PROMPT)
+    if NOT_FOUND.lower() in answer.lower():
+        return {"answer": answer, "sources": []}
     return {"answer": answer, "sources": cited_sources(answer, relevant)}
