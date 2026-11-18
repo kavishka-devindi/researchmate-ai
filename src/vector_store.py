@@ -118,12 +118,17 @@ def search_chunks(question, k=4, source=None):
     return hits
 
 def stored_documents():
-    """List the documents in the database with their chunk counts."""
+    """List the documents in the database with their chunk and page counts."""
     data = get_collection().get(include=["metadatas"])
-    counts = {}
+    info = {}
     for meta in data["metadatas"]:
-        counts[meta["source"]] = counts.get(meta["source"], 0) + 1
-    return [{"File": name, "Chunks": n} for name, n in sorted(counts.items())]
+        entry = info.setdefault(meta["source"], {"chunks": 0, "pages": set()})
+        entry["chunks"] += 1
+        entry["pages"].add(meta["page"])
+    return [
+        {"File": name, "Chunks": v["chunks"], "Pages": len(v["pages"])}
+        for name, v in sorted(info.items())
+    ]
 
 
 def clear_collection():
