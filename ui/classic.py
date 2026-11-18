@@ -12,7 +12,7 @@ from src.rag import answer_question
 from src.tools import summarize_document, compare_documents
 from src.vector_store import stored_documents, VectorStoreError
 from ui.components import (
-    esc, page_header, empty_state, format_answer, render_steps, render_sources, show_tool_text,
+    esc, icon_markup, pdf_icon_markup, page_header, empty_state, format_answer, render_steps, render_sources, show_tool_text,
 )
 from ui.nav import goto, APP_NAME
 
@@ -31,7 +31,7 @@ HERO_SVG = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 150'>
 </svg>"""
 HERO_IMG = base64.b64encode(HERO_SVG.encode()).decode()
 
-ACTIVITY_ICONS = {"question": "💬", "summary": "📝", "comparison": "⚖️", "upload": "📁"}
+ACTIVITY_ICONS = {"question": "chat", "summary": "document", "comparison": "scale", "upload": "document"}
 ACTIVITY_VERBS = {"question": "Asked", "summary": "Summarised", "comparison": "Compared", "upload": "Uploaded"}
 
 
@@ -50,7 +50,7 @@ def _settings():
 def page_dashboard():
     docs = stored_documents()
     st.markdown(
-        f'<div class="hero"><div><div class="hero-title">{_greeting()}! 👋</div>'
+        f'<div class="hero"><div><div class="hero-title">{_greeting()}, Researcher</div>'
         f"<p>Welcome to {esc(APP_NAME)}, your AI research assistant. Ask questions, summarise "
         "or compare your documents, and see exactly where every answer comes from.</p></div>"
         f'<img src="data:image/svg+xml;base64,{HERO_IMG}" alt=""></div>',
@@ -71,11 +71,11 @@ def page_dashboard():
             goto("workspace")
 
     chip1, chip2, chip3, _ = st.columns([2, 2, 2.4, 3])
-    if chip1.button("💡 Summarise a document", key="chip_summary"):
+    if chip1.button("Summarise a document", key="chip_summary"):
         goto("summary")
-    if chip2.button("⚖️ Compare documents", key="chip_compare"):
+    if chip2.button("Compare documents", key="chip_compare"):
         goto("compare")
-    if chip3.button("❓ What documents do I have?", key="chip_docs"):
+    if chip3.button("What documents do I have?", key="chip_docs"):
         st.session_state.pending_question = "What documents do I have?"
         goto("workspace")
     st.write("")
@@ -83,14 +83,14 @@ def page_dashboard():
     history = load_history()
     questions = sum(1 for h in history if h["kind"] == "question")
     stats = [
-        ("📄", len(docs), "Documents"),
-        ("📑", sum(d["Pages"] for d in docs), "Pages with text"),
-        ("🧩", sum(d["Chunks"] for d in docs), "Searchable sections"),
-        ("💬", questions, "Questions asked"),
+        ("document", len(docs), "Documents"),
+        ("document", sum(d["Pages"] for d in docs), "Pages with text"),
+        ("chart", sum(d["Chunks"] for d in docs), "Searchable sections"),
+        ("chat", questions, "Questions asked"),
     ]
     for col, (icon, num, label) in zip(st.columns(4), stats):
         col.markdown(
-            f'<div class="stat-card"><div class="icon">{icon}</div>'
+            f'<div class="stat-card"><div class="icon">{icon_markup(icon, "1.35rem")}</div>'
             f'<div><div class="num">{num}</div><div class="lbl">{label}</div></div></div>',
             unsafe_allow_html=True,
         )
@@ -99,11 +99,12 @@ def page_dashboard():
     left, right = st.columns([3, 2])
     with left:
         with st.container(border=True, key="box_dash_docs"):
-            st.markdown("#### 📄 Your documents")
+            st.markdown("#### Recent documents")
             if docs:
                 rows = "".join(
-                    f'<div class="doc-row"><div><b>{esc(d["File"])}</b>'
-                    f'<div class="muted">{d["Pages"]} pages with text</div></div>'
+                    f'<div class="doc-row"><div class="doc-row-main">{pdf_icon_markup("1.55rem")}'
+                    f'<div><b>{esc(d["File"])}</b>'
+                    f'<div class="muted">{d["Pages"]} pages with text</div></div></div>'
                     '<span class="pill">Ready</span></div>'
                     for d in docs[:5]
                 )
@@ -114,11 +115,12 @@ def page_dashboard():
                     goto("documents")
 
         with st.container(border=True, key="box_dash_activity"):
-            st.markdown("#### 🕘 Recent activity")
+            st.markdown("#### Recent activity")
             recent = history[-5:][::-1]
             if recent:
                 rows = "".join(
-                    f'<div class="activity">{ACTIVITY_ICONS.get(h["kind"], "•")} '
+                    f'<div class="activity"><span class="activity-icon">'
+                    f'{icon_markup(ACTIVITY_ICONS.get(h["kind"], "spark"), "1rem")}</span>'
                     f'{ACTIVITY_VERBS.get(h["kind"], "")}: {esc(h["text"])} '
                     f'<span class="muted">· {time_ago(h["time"])}</span></div>'
                     for h in recent
@@ -129,15 +131,34 @@ def page_dashboard():
 
     with right:
         with st.container(border=True, key="box_dash_actions"):
-            st.markdown("#### ⚡ Quick actions")
-            if st.button("📁 Upload documents", use_container_width=True, key="qa_upload"):
+            st.markdown("#### Quick actions")
+            if st.button("Upload documents", use_container_width=True, key="qa_upload"):
                 goto("documents")
-            if st.button("💬 Ask a question", use_container_width=True, key="qa_chat"):
+            if st.button("Ask a question", use_container_width=True, key="qa_chat"):
                 goto("workspace")
-            if st.button("📝 Summarise a document", use_container_width=True, key="qa_summary"):
+            if st.button("Summarise a document", use_container_width=True, key="qa_summary"):
                 goto("summary")
-            if st.button("⚖️ Compare documents", use_container_width=True, key="qa_compare"):
+            if st.button("Compare documents", use_container_width=True, key="qa_compare"):
                 goto("compare")
+        st.markdown(
+            '<div class="rm-insight-banner"><div><b>Turn your research into insights</b>'
+            '<span>Let ResearchMate AI analyze your library and uncover meaningful findings.</span>'
+            '<span class="rm-insight-cta">Start exploring</span></div>'
+            '<svg class="rm-insight-art" viewBox="0 0 180 112" xmlns="http://www.w3.org/2000/svg" '
+            'aria-label="Research insights illustration">'
+            '<ellipse cx="102" cy="96" rx="63" ry="7" fill="#7C2D12" opacity=".10"/>'
+            '<rect x="43" y="20" width="78" height="62" rx="7" fill="#FFF7ED" stroke="#334155" stroke-width="4"/>'
+            '<rect x="53" y="31" width="58" height="7" rx="3.5" fill="#FDBA74"/>'
+            '<rect x="53" y="44" width="58" height="6" rx="3" fill="#FED7AA"/>'
+            '<path d="M58 68l14-10 12 5 16-18 8 7" fill="none" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'
+            '<circle cx="72" cy="58" r="4" fill="#EA580C"/><circle cx="84" cy="63" r="4" fill="#EA580C"/><circle cx="100" cy="45" r="4" fill="#EA580C"/>'
+            '<circle cx="132" cy="49" r="20" fill="#FFF7ED" stroke="#334155" stroke-width="4"/>'
+            '<path d="M145 62l20 20" stroke="#334155" stroke-width="7" stroke-linecap="round"/>'
+            '<rect x="17" y="79" width="52" height="16" rx="4" fill="#EA580C"/>'
+            '<rect x="25" y="70" width="54" height="12" rx="4" fill="#FB923C"/>'
+            '</svg></div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------- Research Workspace (chat) ----------
@@ -147,9 +168,9 @@ def page_chat():
     settings = _settings()
     st.session_state.setdefault("messages", [])
 
-    page_header("💬", "Research Workspace", "Ask questions about your documents and get answers with sources.")
+    page_header("chat", "Research Workspace", "Ask questions about your documents and get answers with sources.")
 
-    with st.expander("⚙️ Answer settings"):
+    with st.expander("Answer settings"):
         style = st.radio(
             "Answer style",
             ["Smart assistant (recommended)", "Quick answer"],
@@ -160,9 +181,19 @@ def page_chat():
         )
         settings["smart"] = style.startswith("Smart")
         settings["show_steps"] = st.checkbox("Show how answers were found", value=settings["show_steps"])
+        scope_options = ["All uploaded documents"] + names
+        previous_scope = st.session_state.get("document_scope", "All uploaded documents")
+        if previous_scope not in scope_options:
+            previous_scope = "All uploaded documents"
+        selected_scope = st.selectbox(
+            "Search in",
+            scope_options,
+            index=scope_options.index(previous_scope),
+        )
+        st.session_state.document_scope = selected_scope
 
     if not docs:
-        empty_state("📁", "No documents yet", "Upload one or more PDFs in My Documents to begin.")
+        empty_state("document", "No documents yet", "Upload one or more PDFs in My Documents to begin.")
         if st.button("Go to My Documents", key="chat_to_docs"):
             goto("documents")
     elif not st.session_state.messages:
@@ -191,10 +222,12 @@ def page_chat():
             st.markdown(question)
         try:
             with st.spinner("Thinking..."):
+                selected_scope = st.session_state.get("document_scope", "All uploaded documents")
+                source = None if selected_scope == "All uploaded documents" else selected_scope
                 if settings["smart"]:
-                    res = run_agent(question)
+                    res = run_agent(question, source=source)
                 else:
-                    res = answer_question(question)
+                    res = answer_question(question, source=source)
                     res["tool_calls"] = []
             st.session_state.messages.append(
                 {"role": "assistant", "content": res["answer"], "tool_calls": res["tool_calls"],
@@ -202,12 +235,12 @@ def page_chat():
             )
         except (LLMError, VectorStoreError, AgentError) as e:
             st.session_state.messages.append(
-                {"role": "assistant", "content": f"⚠️ {e}", "tool_calls": [], "sources": [], "agent": False}
+                {"role": "assistant", "content": f"Error: {e}", "tool_calls": [], "sources": [], "agent": False}
             )
         st.rerun()
 
     if st.session_state.messages:
-        if st.button("🗑️ Clear chat", key="clear_chat"):
+        if st.button("Clear chat", key="clear_chat"):
             st.session_state.messages = []
             st.rerun()
 
@@ -215,9 +248,9 @@ def page_chat():
 # ---------- Summary ----------
 def page_summary():
     names = [d["File"] for d in stored_documents()]
-    page_header("📝", "Summary", "Get a short, cited summary of any document.")
+    page_header("document", "Summary", "Get a short, cited summary of any document.")
     if not names:
-        empty_state("📁", "No documents yet", "Upload and process at least one PDF first.")
+        empty_state("document", "No documents yet", "Upload and process at least one PDF first.")
         return
     with st.container(border=True, key="box_summary"):
         chosen = st.selectbox("Choose a document", names, key="sum_doc")
@@ -237,9 +270,9 @@ def page_summary():
 # ---------- Compare ----------
 def page_compare():
     names = [d["File"] for d in stored_documents()]
-    page_header("⚖️", "Compare Papers", "Analyze and compare documents side by side.")
+    page_header("scale", "Compare Papers", "Analyze and compare documents side by side.")
     if len(names) < 2:
-        empty_state("⚖️", "Two documents needed", "Upload and process at least two PDFs to compare them.")
+        empty_state("scale", "Two documents needed", "Upload and process at least two PDFs to compare them.")
         return
     with st.container(border=True, key="box_compare"):
         col_a, col_b = st.columns(2)

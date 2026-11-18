@@ -11,7 +11,7 @@ from src.history import add_entry
 from src.pdf_processing import extract_pages, chunk_pages, PDFError
 from src.storage import save_pdf, read_pdf, uploaded_at, delete_pdf, render_pages
 from src.vector_store import add_chunks, delete_document, stored_documents, VectorStoreError
-from ui.components import esc, page_header, empty_state, status_chip
+from ui.components import esc, pdf_icon_markup, page_header, empty_state, status_chip
 
 SORT_OPTIONS = ["Newest first", "Oldest first", "Name (A-Z)", "Most pages"]
 DATE_OPTIONS = ["All dates", "Last 7 days", "Last 30 days"]
@@ -132,7 +132,7 @@ def _preview_dialog(name):
 # ---------- upload ----------
 def _upload_section():
     with st.container(border=True, key="box_upload"):
-        st.markdown("##### ☁️ Upload research papers")
+        st.markdown("##### Upload research papers")
         files = st.file_uploader(
             "Upload research papers", type=["pdf"], accept_multiple_files=True, label_visibility="collapsed"
         )
@@ -177,21 +177,21 @@ def _grid_card(rec, selected):
             if cover:
                 st.image(cover, width="stretch")
             else:
-                st.markdown('<div class="rm-cover">📄</div>', unsafe_allow_html=True)
+                st.markdown('<div class="rm-cover">PDF</div>', unsafe_allow_html=True)
         with text_col:
             meta = []
             if rec["authors"]:
                 meta.append(esc(rec["authors"]) + (f" ({esc(rec['year'])})" if rec["year"] else ""))
-            meta.append(f"📅 {rec['date']}")
-            meta.append(f"📄 {rec['pages']} pages")
+            meta.append(f"Uploaded {rec['date']}")
+            meta.append(f"{rec['pages']} pages")
             st.markdown(
-                f'<div class="rm-card-title">{esc(rec["title"])}</div>'
+                f'<div class="rm-card-title"><span class="rm-pdf-inline">{pdf_icon_markup("1.35rem")}</span>{esc(rec["title"])}</div>'
                 + "".join(f'<div class="rm-meta">{m}</div>' for m in meta)
                 + _chip(rec),
                 unsafe_allow_html=True,
             )
         b1, b2, b3 = st.columns(3)
-        if b1.button("👁", key=f"pv_{k}", help="Preview", use_container_width=True):
+        if b1.button("Preview", key=f"pv_{k}", help="Preview", use_container_width=True):
             st.session_state.preview_doc = rec["name"]
             _preview_dialog(rec["name"])
         has_pdf = uploaded_at(rec["name"]) is not None
@@ -200,10 +200,10 @@ def _grid_card(rec, selected):
                            disabled=not has_pdf, use_container_width=True)
         with b3.popover("⋮", use_container_width=True):
             if not rec["analysis"]:
-                if st.button("🔬 Analyse", key=f"an_{k}", use_container_width=True):
+                if st.button("Analyse", key=f"an_{k}", use_container_width=True):
                     _analyze(rec["name"])
             sure = st.checkbox("Confirm delete", key=f"cd_{k}")
-            if st.button("🗑 Delete", key=f"del_{k}", disabled=not sure, use_container_width=True):
+            if st.button("Delete", key=f"del_{k}", disabled=not sure, use_container_width=True):
                 _delete(rec["name"])
 
 
@@ -214,12 +214,12 @@ def _list_row(rec, selected):
         c_chk.checkbox("Select", value=selected, key=f"chk_{k}", on_change=_toggle, args=(rec["name"],),
                        label_visibility="collapsed")
         sub = (esc(rec["authors"]) if rec["authors"] else esc(rec["name"]))
-        c_title.markdown(f'<div class="rm-card-title">{esc(rec["title"])}</div><div class="rm-meta">{sub}</div>',
+        c_title.markdown(f'<div class="rm-card-title"><span class="rm-pdf-inline">{pdf_icon_markup("1.35rem")}</span>{esc(rec["title"])}</div><div class="rm-meta">{sub}</div>',
                          unsafe_allow_html=True)
-        c_pages.markdown(f'<div class="rm-meta">📄 {rec["pages"]} pages</div>', unsafe_allow_html=True)
-        c_date.markdown(f'<div class="rm-meta">📅 {rec["date"]}</div>', unsafe_allow_html=True)
+        c_pages.markdown(f'<div class="rm-meta">{rec["pages"]} pages</div>', unsafe_allow_html=True)
+        c_date.markdown(f'<div class="rm-meta">{rec["date"]}</div>', unsafe_allow_html=True)
         c_status.markdown(_chip(rec), unsafe_allow_html=True)
-        if c_act.button("👁", key=f"pv_{k}", help="Preview", use_container_width=True):
+        if c_act.button("Preview", key=f"pv_{k}", help="Preview", use_container_width=True):
             st.session_state.preview_doc = rec["name"]
             _preview_dialog(rec["name"])
 
@@ -235,7 +235,7 @@ def _preview_panel(rec):
         if cover:
             st.image(cover, width="stretch")
         else:
-            st.markdown('<div class="rm-cover">📄</div>', unsafe_allow_html=True)
+            st.markdown('<div class="rm-cover">PDF</div>', unsafe_allow_html=True)
         a = rec["analysis"] or {}
         rows = [
             ("Title", rec["title"]),
@@ -248,9 +248,13 @@ def _preview_panel(rec):
         if a.get("topics"):
             rows.append(("Topics", ", ".join(a["topics"])))
         table = "".join(f"<tr><td>{esc(k)}</td><td>{esc(str(v))}</td></tr>" for k, v in rows)
-        st.markdown(f'<table class="rm-details">{table}</table>' + _chip(rec), unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="rm-card-title"><span class="rm-pdf-inline">{pdf_icon_markup("1.35rem")}</span>Document details</div>'
+            f'<table class="rm-details">{table}</table>' + _chip(rec),
+            unsafe_allow_html=True,
+        )
         st.write("")
-        if st.button("👁 View document", type="primary", key="pp_view", use_container_width=True):
+        if st.button("View document", type="primary", key="pp_view", use_container_width=True):
             _preview_dialog(rec["name"])
         has_pdf = uploaded_at(rec["name"]) is not None
         st.download_button("⬇ Download", data=partial(read_pdf, rec["name"]), file_name=rec["name"],
@@ -258,14 +262,19 @@ def _preview_panel(rec):
         if not has_pdf:
             st.caption("Upload this PDF again to enable preview and download.")
         if not rec["analysis"]:
-            if st.button("🔬 Analyse this paper", key="pp_an", use_container_width=True,
+            if st.button("Analyse this paper", key="pp_an", use_container_width=True,
                          help="Extracts title, authors, methods and results. Uses 1 AI request."):
                 _analyze(rec["name"])
+        st.divider()
+        confirm_delete = st.checkbox("Confirm permanent removal", key="pp_confirm_delete")
+        if st.button("Remove document", key="pp_delete", disabled=not confirm_delete,
+                     use_container_width=True):
+            _delete(rec["name"])
 
 
 # ---------- page ----------
 def page_documents():
-    page_header("📁", "My Documents", "Manage your research papers and explore their content.")
+    page_header("document", "My Documents", "Manage your research papers and explore their content.")
 
     flash = st.session_state.pop("doc_flash", None)
     if flash:
@@ -278,7 +287,7 @@ def page_documents():
     records = _records()
     if not records:
         st.write("")
-        empty_state("📚", "No documents yet", "Upload your first PDF above to get started.")
+        empty_state("document", "No documents yet", "Upload your first PDF above to get started.")
         return
 
     st.write("")
@@ -316,7 +325,7 @@ def page_documents():
             st.rerun()
 
         if not shown:
-            empty_state("🔎", "No matching documents", "Try a different search or filter.")
+            empty_state("spark", "No matching documents", "Try a different search or filter.")
         elif view == "List":
             for rec in shown:
                 _list_row(rec, rec["name"] in selected_names)

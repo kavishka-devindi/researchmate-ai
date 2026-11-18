@@ -28,12 +28,15 @@ def list_documents() -> str:
 
 
 @tool
-def search_documents(query: str) -> str:
+def search_documents(query: str, source: str = "") -> str:
     """Find passages in the uploaded documents that are relevant to a specific
     question or topic. Use this for factual questions about document content.
     Returns passages labelled with the file name and page number."""
     try:
-        hits = [h for h in search_chunks(query, k=6) if h["score"] >= MIN_SCORE]
+        hits = [
+            h for h in search_chunks(query, k=6, source=source or None)
+            if h["score"] >= MIN_SCORE
+        ]
     except VectorStoreError as e:
         return f"Search failed: {e}"
     if not hits:

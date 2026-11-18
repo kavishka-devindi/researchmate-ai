@@ -41,12 +41,12 @@ def cited_sources(answer, sources):
     used = [s for s in sources if (_norm(s["source"]), s["page"]) in cited]
     return used or sources  # if no citation could be read, show everything retrieved
 
-def answer_question(question):
+def answer_question(question, source=None):
     """Answer a question from the stored documents.
 
     Returns {"answer": text, "sources": list of the chunks that were used}
     """
-    hits = search_chunks(question, k=TOP_K)
+    hits = search_chunks(question, k=TOP_K, source=source)
     relevant = [h for h in hits if h["score"] >= MIN_SCORE]
 
     if not relevant:

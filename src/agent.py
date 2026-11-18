@@ -37,6 +37,7 @@ class AgentError(Exception):
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     steps: int
+    selected_source: str
 
 
 # ---- The model, with our tools attached ----
@@ -60,7 +61,10 @@ def call_tools(state: AgentState):
     outputs = []
     for call in state["messages"][-1].tool_calls:
         try:
-            result = tools_by_name[call["name"]].invoke(call["args"])
+            args = dict(call["args"])
+            if call["name"] == "search_documents" and state.get("selected_source"):
+                args["source"] = state["selected_source"]
+            result = tools_by_name[call["name"]].invoke(args)
         except Exception as e:
             result = f"Tool error: {e}"
         outputs.append(ToolMessage(content=result, name=call["name"], tool_call_id=call["id"]))
@@ -121,13 +125,25 @@ def resolve_citations(answer):
     return records
 
 
-def run_agent(question):
+def run_agent(question, source=None):
     """Run the agent.
 
     Returns {"answer": text, "tool_calls": [{"tool", "args"}, ...], "sources": [...]}
     """
     try:
-        result = graph.invoke({"messages": [HumanMessage(content=question)], "steps": 0})
+        selected_source = source or ""
+        prompt = question
+        if selected_source:
+            prompt = (
+                f"The user selected this PDF: {selected_source}\n"
+                "Use only this selected PDF for document searches and summaries.\n\n"
+                f"{question}"
+            )
+        result = graph.invoke({
+            "messages": [HumanMessage(content=prompt)],
+            "steps": 0,
+            "selected_source": selected_source,
+        })
     except Exception as e:
         raise AgentError(
             "The agent could not finish. The AI service may be busy or rate-limited. "
