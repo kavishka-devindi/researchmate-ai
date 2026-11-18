@@ -22,16 +22,23 @@ def build_context(hits):
         blocks.append(f"[{i}] (Source: {h['source']}, page {h['page']})\n{h['text']}")
     return "\n\n".join(blocks)
 
-CITATION_PATTERN = re.compile(r"\[Source:\s*(.+?),\s*pages?\s*([\d,\s]+)\]", re.IGNORECASE)
+CITATION_PATTERN = re.compile(r"\[Source:\s*(.+?),\s*pages?\s*([\d,\s\-–]+)\]", re.IGNORECASE)
 
+def _norm(name):
+    """Normalise a file name so small spelling slips still match.
+
+    'Lecture5.pdf', 'Lecture 5.pdf' and 'Lecture 05.pdf' all become 'lecture5.pdf'.
+    """
+    name = re.sub(r"\s+", "", name).lower()
+    return re.sub(r"(?<!\d)0+(?=\d)", "", name)   # remove leading zeros in numbers
 
 def cited_sources(answer, sources):
     """Keep only the chunks whose (file, page) the answer actually cites."""
     cited = set()
     for m in CITATION_PATTERN.finditer(answer):
         for number in re.findall(r"\d+", m.group(2)):   # handles "page 8, 9"
-            cited.add((m.group(1).strip(), int(number)))
-    used = [s for s in sources if (s["source"], s["page"]) in cited]
+            cited.add((_norm(m.group(1)), int(number)))
+    used = [s for s in sources if (_norm(s["source"]), s["page"]) in cited]
     return used or sources  # if no citation could be read, show everything retrieved
 
 def answer_question(question):

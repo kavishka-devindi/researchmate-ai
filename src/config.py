@@ -14,6 +14,7 @@ if not GEMINI_API_KEY:
 # Model settings (we'll confirm the exact names in Part B)
 CHAT_MODEL = "gemini-3.5-flash-lite"
 FALLBACK_MODEL = "gemini-3.1-flash-lite"
+AGENT_MODEL = "gemini-3.5-flash-lite"
 TEMPERATURE = 0.2
 
 # Embeddings and vector database

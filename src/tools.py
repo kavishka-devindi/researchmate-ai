@@ -1,7 +1,7 @@
 from langchain_core.tools import tool
 
 from src.llm import generate_answer, LLMError
-from src.rag import MIN_SCORE, build_context
+from src.rag import MIN_SCORE, build_context, answer_question
 from src.vector_store import (
     search_chunks, stored_documents, get_document_chunks, VectorStoreError,
 )
@@ -103,5 +103,15 @@ def compare_documents(filename_a: str, filename_b: str, topic: str) -> str:
     except LLMError as e:
         return f"Comparison failed: {e}"
 
+@tool
+def answer_from_documents(question: str) -> str:
+    """Get a complete, cited answer to ONE self-contained factual question using
+    the uploaded documents (for example 'What is an ODS?'). Do not use this for
+    summaries, comparisons, or questions that need several different searches."""
+    try:
+        result = answer_question(question)
+    except (LLMError, VectorStoreError) as e:
+        return f"Answering failed: {e}"
+    return result["answer"]
 
-TOOLS = [list_documents, search_documents, summarize_document, compare_documents]
+TOOLS = [list_documents, search_documents, answer_from_documents, summarize_document, compare_documents]

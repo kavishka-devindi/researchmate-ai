@@ -1,13 +1,15 @@
+import re
 from typing import Annotated, Sequence, TypedDict
-from src.config import CHAT_MODEL, GEMINI_API_KEY
+
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
-from src.config import CHAT_MODEL, GEMINI_API_KEY, TEMPERATURE
-from src.rag import NOT_FOUND
+from src.config import AGENT_MODEL, GEMINI_API_KEY
+from src.rag import NOT_FOUND, CITATION_PATTERN, _norm
 from src.tools import TOOLS
+from src.vector_store import stored_documents, get_document_chunks
 
 MAX_STEPS = 6  # safety cap on LLM calls per question
 
@@ -17,12 +19,14 @@ You must use your tools. Never answer questions about document content from memo
 Tool guide:
 - Greetings, or questions about what you can do: answer directly, no tools.
 - Any other question: call a tool first, even if it seems unrelated to the documents.
-- Facts or details: search_documents.
+- A direct factual question with one clear answer: answer_from_documents.
+- Exploring a topic, or gathering passages from several angles: search_documents.
 - Summary or overview of one document: list_documents (if you don't know the exact name), then summarize_document.
 - Comparing two documents: list_documents (if needed), then compare_documents.
 
 Base your answer ONLY on tool results. If the tools find nothing relevant, reply exactly: "{NOT_FOUND}"
-After each fact you use, cite it like [Source: file name, page N]."""
+After each fact you use, cite it like [Source: file name, page N].
+Write normal English with a space between every word, and copy file names exactly as written, including spaces."""
 
 
 class AgentError(Exception):
@@ -37,7 +41,7 @@ class AgentState(TypedDict):
 
 # ---- The model, with our tools attached ----
 llm = ChatGoogleGenerativeAI(
-    model=CHAT_MODEL,
+    model=AGENT_MODEL,
     google_api_key=GEMINI_API_KEY,
     max_retries=2,
 )
@@ -94,9 +98,34 @@ def message_text(message):
             parts.append(block.get("text", ""))
     return "".join(parts)
 
+def resolve_citations(answer):
+    """Turn [Source: file, page N] citations into checkable source records.
+
+    Each record: {"source", "page", "text"}; text is None if the file or page doesn't exist.
+    """
+    names = {_norm(d["File"]): d["File"] for d in stored_documents()}
+    seen, records = set(), []
+    for m in CITATION_PATTERN.finditer(answer):
+        file_key = _norm(m.group(1))
+        for number in re.findall(r"\d+", m.group(2)):
+            page = int(number)
+            if (file_key, page) in seen:
+                continue
+            seen.add((file_key, page))
+            real_name = names.get(file_key)
+            text = None
+            if real_name:
+                pieces = [c["text"] for c in get_document_chunks(real_name) if c["page"] == page]
+                text = "\n\n".join(pieces) or None
+            records.append({"source": real_name or m.group(1).strip(), "page": page, "text": text})
+    return records
+
 
 def run_agent(question):
-    """Run the agent. Returns {"answer": text, "tool_calls": [{"tool", "args"}, ...]}"""
+    """Run the agent.
+
+    Returns {"answer": text, "tool_calls": [{"tool", "args"}, ...], "sources": [...]}
+    """
     try:
         result = graph.invoke({"messages": [HumanMessage(content=question)], "steps": 0})
     except Exception as e:
@@ -114,4 +143,4 @@ def run_agent(question):
     answer = message_text(messages[-1]).strip()
     if not answer:
         answer = "The agent stopped before producing an answer. Try a more specific question."
-    return {"answer": answer, "tool_calls": tool_calls}
+    return {"answer": answer, "tool_calls": tool_calls, "sources": resolve_citations(answer)}
