@@ -124,6 +124,26 @@ def resolve_citations(answer):
             records.append({"source": real_name or m.group(1).strip(), "page": page, "text": text})
     return records
 
+def _error_text(e):
+    """All messages in the chain of causes, lower-cased, so we can recognise the real problem."""
+    parts, seen = [], set()
+    while e is not None and id(e) not in seen:
+        seen.add(id(e))
+        parts.append(f"{type(e).__name__} {e}")
+        e = e.__cause__ or e.__context__
+    return " ".join(parts).lower()
+
+
+def friendly_agent_error(e):
+    text = _error_text(e)
+    if any(k in text for k in ("api key not valid", "api_key_invalid", "permission_denied", "unauthenticated")):
+        return "The request was rejected. Check that the Gemini API key in your .env file is valid."
+    if any(k in text for k in ("429", "resource_exhausted", "rate limit", "quota")):
+        return "Rate limit reached. Please wait a minute and try again."
+    if any(k in text for k in ("connecterror", "connection", "getaddrinfo", "name resolution", "timed out", "timeout", "unreachable")):
+        return "Could not reach the Gemini service. Check your internet connection."
+    return "The agent could not finish. Please try again in a minute."
+    
 
 def run_agent(question, source=None):
     """Run the agent.
@@ -145,10 +165,7 @@ def run_agent(question, source=None):
             "selected_source": selected_source,
         })
     except Exception as e:
-        raise AgentError(
-            "The agent could not finish. The AI service may be busy or rate-limited. "
-            "Please try again in a minute."
-        ) from e
+        raise AgentError(friendly_agent_error(e)) from e
 
     messages = result["messages"]
     tool_calls = [

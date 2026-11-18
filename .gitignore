@@ -3,3 +3,5 @@ venv/
 data/
 __pycache__/
 *.pyc
+tests/results/*.csv
+tests/results/eval_results.json
