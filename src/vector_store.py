@@ -83,19 +83,23 @@ def add_chunks(chunks):
     )
     return len(new_chunks)
 
-def search_chunks(question, k=4):
+def search_chunks(question, k=4, source=None):
     """Return the k chunks most similar in meaning to the question.
 
+    If source is given, only that document is searched.
     Each result: {"text", "source", "page", "score"}  (score: 1.0 = identical meaning)
     """
     collection = get_collection()
-    if collection.count() == 0:
+    where = {"source": source} if source else None
+    available = len(collection.get(where=where, include=[])["ids"]) if where else collection.count()
+    if available == 0:
         return []
 
     query_vector = embed_texts([question], task_type="RETRIEVAL_QUERY")[0]
     results = collection.query(
         query_embeddings=[query_vector],
-        n_results=min(k, collection.count()),
+        n_results=min(k, available),
+        where=where,
         include=["documents", "metadatas", "distances"],
     )
 
@@ -128,3 +132,12 @@ def clear_collection():
         chroma_client.delete_collection("documents")
     except Exception:
         pass
+
+def get_document_chunks(source):
+    """Return all stored chunks of one document, in reading order."""
+    data = get_collection().get(where={"source": source}, include=["documents", "metadatas"])
+    chunks = []
+    for cid, text, meta in zip(data["ids"], data["documents"], data["metadatas"]):
+        chunks.append({"chunk_id": cid, "text": text, "page": meta["page"]})
+    chunks.sort(key=lambda c: (c["page"], int(c["chunk_id"].rsplit("-c", 1)[1])))
+    return chunks
