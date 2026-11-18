@@ -1,14 +1,14 @@
 [theme.light]
-primaryColor = "#D9480F"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#FFF4EC"
-textColor = "#1F2430"
+primaryColor = "#EA580C"
+backgroundColor = "#FFF9F2"
+secondaryBackgroundColor = "#FFF0DD"
+textColor = "#252525"
 
 [theme.dark]
 primaryColor = "#EA580C"
-backgroundColor = "#0F1115"
-secondaryBackgroundColor = "#1B1E26"
-textColor = "#ECEEF3"
+backgroundColor = "#14110F"
+secondaryBackgroundColor = "#221C17"
+textColor = "#F5EDE4"
 
 [server]
 maxUploadSize = 50

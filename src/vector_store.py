@@ -146,3 +146,7 @@ def get_document_chunks(source):
         chunks.append({"chunk_id": cid, "text": text, "page": meta["page"]})
     chunks.sort(key=lambda c: (c["page"], int(c["chunk_id"].rsplit("-c", 1)[1])))
     return chunks
+
+def delete_document(source):
+    """Remove one document (all its chunks) from the database."""
+    get_collection().delete(where={"source": source})
