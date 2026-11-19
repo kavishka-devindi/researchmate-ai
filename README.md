@@ -170,7 +170,6 @@ python -m tests.run_eval --pause 8
 | Agent: acceptable tool chosen | 22/22 | 22/22 |
 | Median / slowest response, Direct RAG | not measured | 1.9 s / 3.8 s |
 | Median / slowest response, Agent | not measured | 4.6 s / 29.7 s |
-| Answer faithfulness (judged by hand) | _fill in_ | _fill in_ |
 
 **Reading these numbers.** Retrieval is deterministic, but answers are not: the same questions gave different citation results on two runs, so the answer-level rows are shown as two runs rather than one number. "Expected page cited" and "citation pointing to a real page" check where an answer points, not whether each claim is actually on that page. That is what the manual faithfulness check is for.
 
